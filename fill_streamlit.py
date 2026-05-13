@@ -9,12 +9,39 @@ Flow:
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 import requests
 import streamlit as st
 
 import form
+
+# Default password (can be overridden with APP_PASSWORD environment variable)
+DEFAULT_PASSWORD = "password123"
+APP_PASSWORD = os.getenv("APP_PASSWORD", DEFAULT_PASSWORD)
+
+
+def _check_password() -> bool:
+    """Check if user is authenticated. Returns True if authenticated."""
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+
+    if st.session_state.authenticated:
+        return True
+
+    # Show password prompt if not authenticated
+    st.markdown("### 🔒 Password Required")
+    password = st.text_input("Enter password to access the form filler:", type="password")
+
+    if password:
+        if password == APP_PASSWORD:
+            st.session_state.authenticated = True
+            st.success("Password correct! Refreshing...")
+            st.rerun()
+        else:
+            st.error("Incorrect password. Please try again.")
+    return False
 
 
 def _field_label(entry: dict[str, Any], index: int) -> str:
@@ -91,7 +118,18 @@ def _validate_required(entries: list[dict[str, Any]], values: list[Any]) -> list
 def main() -> None:
     st.set_page_config(page_title="Google Form Stream Filler", page_icon="📝")
     st.title("Google Form Stream Filler")
+
+    # Check password before showing main content
+    if not _check_password():
+        return
+
     st.write("Load a form, fill each field, then submit multiple times.")
+
+    # Logout button in sidebar
+    with st.sidebar:
+        if st.button("🚪 Logout"):
+            st.session_state.authenticated = False
+            st.rerun()
 
     if "entries" not in st.session_state:
         st.session_state.entries = None
